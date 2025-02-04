@@ -37,7 +37,7 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
         # Set the minimum width to 1/3 of the parent window's width
         parent_width = self.window.get_size()[0]
         dialog.set_default_size(parent_width // 3, -1)
-    
+
         text_view = builder.get_object("text_view")
 
         dialog.show_all()
@@ -46,8 +46,24 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
         if response == Gtk.ResponseType.OK:
             buffer = text_view.get_buffer()
             start_iter, end_iter = buffer.get_bounds()
-            text = buffer.get_text(start_iter, end_iter, True)
-            print("Text entered:", text)
+            new_text = buffer.get_text(start_iter, end_iter, True)
+
+            # Get the current document
+            document = self.window.get_active_document()
+            if document:
+                # Get the current selection bounds
+                if document.get_has_selection():
+                    start, end = document.get_selection_bounds()
+                else:
+                    # Select the entire document if no selection
+                    start = document.get_start_iter()
+                    end = document.get_end_iter()
+
+                # Replace the selected text with the new text
+                document.begin_user_action()
+                document.delete(start, end)
+                document.insert(start, new_text)
+                document.end_user_action()
 
         dialog.destroy()
 
