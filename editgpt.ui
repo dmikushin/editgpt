@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
-  <requires lib="gtk+" version="3.0"/>
+  <requires lib="gtk+" version="3.8"/>
   <object class="GtkDialog" id="EditGPTDialog">
     <property name="title" translatable="yes">Edit with ChatGPT</property>
     <property name="resizable">True</property>
@@ -15,19 +15,26 @@
             <property name="orientation">horizontal</property>
             <property name="spacing">10</property>
             <child>
-              <object class="GtkLabel" id="task_label">
-                <property name="label" translatable="yes">Task</property>
-                <property name="margin_top">10</property>
-                <property name="margin_bottom">10</property>
+              <object class="GtkLabel" id="prompt_label">
+                <property name="label" translatable="yes">Prompt</property>
+                <property name="margin_top">0</property>
                 <property name="margin_start">10</property>
+                <property name="margin_end">10</property>
+                <property name="valign">start</property>
               </object>
             </child>
             <child>
-              <object class="GtkTextView" id="text_view">
-                <property name="wrap_mode">word</property>
-                <property name="margin_top">10</property>
-                <property name="margin_bottom">10</property>
-                <property name="margin_end">10</property>
+              <object class="GtkScrolledWindow" id="scrolled_window">
+                <property name="shadow_type">in</property>
+                <property name="hscrollbar_policy">automatic</property>
+                <property name="vscrollbar_policy">always</property>
+                <property name="min_content_height">120</property>
+                <property name="expand">True</property>
+                <child>
+                  <object class="GtkTextView" id="text_view">
+                    <property name="wrap_mode">word</property>
+                  </object>
+                </child>
               </object>
             </child>
           </object>

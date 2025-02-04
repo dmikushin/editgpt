@@ -34,6 +34,10 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
         header_bar.set_show_close_button(True)
         dialog.set_titlebar(header_bar)
 
+        # Set the minimum width to 1/3 of the parent window's width
+        parent_width = self.window.get_size()[0]
+        dialog.set_default_size(parent_width // 3, -1)
+    
         text_view = builder.get_object("text_view")
 
         dialog.show_all()
