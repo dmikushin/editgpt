@@ -1,0 +1,8 @@
+[Plugin]
+Name=Edit with GPT
+Description=Edit file content or selection with ChatGPT
+Authors=Dmitry Mikushin
+Version=1.0
+Website=https://github.com/dmikushin/editgpt
+Loader=python3
+Module=editgpt
