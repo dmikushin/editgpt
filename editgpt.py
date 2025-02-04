@@ -1,4 +1,5 @@
 from gi.repository import GObject, Gedit, Gio, Gtk
+import os
 
 class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
     window = GObject.Property(type=Gedit.Window)
@@ -15,13 +16,25 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
         self.window.remove_action("editgpt")
 
     def on_action_activate(self, action, parameter, user_data=None):
-        dialog = Gtk.Dialog(title="Edit with ChatGPT", transient_for=self.window, flags=0)
-        dialog.add_buttons(Gtk.STOCK_OK, Gtk.ResponseType.OK, Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
+        builder = Gtk.Builder()
+        
+        # Determine the path to the UI file
+        script_dir = os.path.dirname(__file__)
+        ui_file_path = os.path.join(script_dir, "editgpt.ui")
+        
+        # Load the UI file content
+        builder.add_from_file(ui_file_path)
 
-        box = dialog.get_content_area()
-        text_view = Gtk.TextView()
-        text_view.set_wrap_mode(Gtk.WrapMode.WORD)
-        box.add(text_view)
+        dialog = builder.get_object("EditGPTDialog")
+        dialog.set_transient_for(self.window)
+        
+        # Create a header bar and set the title
+        header_bar = Gtk.HeaderBar()
+        header_bar.set_title("Edit with GPT")
+        header_bar.set_show_close_button(True)
+        dialog.set_titlebar(header_bar)
+
+        text_view = builder.get_object("text_view")
 
         dialog.show_all()
         response = dialog.run()
