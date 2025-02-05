@@ -26,17 +26,35 @@ class EditGPTServer:
         loop.run_forever()
 
     async def generate_text_async(self, prompt, document, start):
-        # Use a weak reference to the document to check if it's still open
         document_ref = weakref.ref(document)
-        for token in ["Hello", " ", "world", "!"]:
-            await asyncio.sleep(2)
+        try:
+            process = await asyncio.create_subprocess_exec(
+                'sgpt', prompt,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+        except Exception as e:
+            print(f"Failed to execute shell_gpt: {e}")
 
-            # Check if the document is still open
-            if document_ref() is None:
-                # Document is closed, cancelling task
-                return
+        async def read_stream(stream, callback):
+            while True:
+                line = await stream.read(1)  # Read one byte at a time
+                if line:
+                    callback(line.decode())
+                else:
+                    break
 
-            GLib.idle_add(self.insert_text, prompt, document, start, token)
+        def handle_stdout(data):
+            if document_ref() is not None:
+                GLib.idle_add(self.insert_text, prompt, document, start, data)
+
+        def handle_stderr(data):
+            print(data)
+
+        # Read stdout and stderr concurrently
+        await asyncio.gather(
+            read_stream(process.stdout, handle_stdout),
+            read_stream(process.stderr, handle_stderr))
 
     def insert_text(self, prompt, document, start, token):
         document.begin_user_action()
@@ -86,7 +104,7 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
         dialog.set_default_size(parent_width // 3, -1)
 
         text_view = builder.get_object("text_view")
-        prompt = text_view.get_buffer()
+        text_buffer = text_view.get_buffer()
 
         dialog.show_all()
         response = dialog.run()
@@ -106,8 +124,13 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
                 document.delete(start, end)
                 document.end_user_action()
 
+                # Extract text from the Gtk.TextBuffer
+                start_iter = text_buffer.get_start_iter()
+                end_iter = text_buffer.get_end_iter()
+                prompt_text = text_buffer.get_text(start_iter, end_iter, True)
+
                 # Use the global EditGPTServer instance
-                edit_gpt_server.dispatch_async_task(prompt, document, start)
+                edit_gpt_server.dispatch_async_task(prompt_text, document, start)
 
 class EditGPTPlugin(GObject.Object, Gedit.AppActivatable):
     __gtype_name__ = "EditGPTPlugin"
