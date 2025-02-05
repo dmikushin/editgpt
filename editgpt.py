@@ -2,6 +2,7 @@ import asyncio
 from gi.repository import GObject, Gedit, Gio, Gtk, GLib
 import os
 import threading
+import weakref
 
 class EditGPTServer:
     _instance = None
@@ -25,8 +26,16 @@ class EditGPTServer:
         loop.run_forever()
 
     async def generate_text_async(self, prompt, document, start):
+        # Use a weak reference to the document to check if it's still open
+        document_ref = weakref.ref(document)
         for token in ["Hello", " ", "world", "!"]:
             await asyncio.sleep(2)
+
+            # Check if the document is still open
+            if document_ref() is None:
+                # Document is closed, cancelling task
+                return
+
             GLib.idle_add(self.insert_text, prompt, document, start, token)
 
     def insert_text(self, prompt, document, start, token):
