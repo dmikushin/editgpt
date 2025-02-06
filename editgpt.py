@@ -1,5 +1,5 @@
 import asyncio
-from gi.repository import GObject, Gedit, Gio, Gtk, GLib
+from gi.repository import GObject, Gedit, Gio, Gtk, Gdk, GLib
 import os
 import threading
 import weakref
@@ -114,6 +114,9 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
         text_view = builder.get_object("text_view")
         text_buffer = text_view.get_buffer()
 
+        # Connect key-press-event to handle Ctrl+Enter
+        dialog.connect("key-press-event", self.on_key_press_event, dialog)
+
         dialog.show_all()
         response = dialog.run()
 
@@ -143,6 +146,12 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
 
                 # Use the global EditGPTServer instance
                 edit_gpt_server.dispatch_async_task(prompt_text, document_text, document, start_offset)
+
+    def on_key_press_event(self, widget, event, dialog):
+        if event.state & Gdk.ModifierType.CONTROL_MASK and event.keyval == Gdk.KEY_Return:
+            dialog.response(Gtk.ResponseType.OK)
+            return True
+        return False
 
 class EditGPTPlugin(GObject.Object, Gedit.AppActivatable):
     __gtype_name__ = "EditGPTPlugin"
