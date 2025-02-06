@@ -25,14 +25,20 @@ class EditGPTServer:
         asyncio.set_event_loop(loop)
         loop.run_forever()
 
-    async def generate_text_async(self, prompt, document, start_offset):
+    async def generate_text_async(self, prompt, input, document, start_offset):
         try:
             document_ref = weakref.ref(document)
             process = await asyncio.create_subprocess_exec(
                 'sgpt', prompt,
+                stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
+
+            # Send the input string to the process
+            process.stdin.write(input.encode())
+            await process.stdin.drain()
+            process.stdin.close()
 
             async def read_stream(stream, callback):
                 while True:
@@ -65,10 +71,10 @@ class EditGPTServer:
         document.end_user_action()
         return False  # Stop the idle function
 
-    def dispatch_async_task(self, prompt, document, start_offset):
+    def dispatch_async_task(self, prompt, input, document, start_offset):
         # Schedule the coroutine to run in the background
         asyncio.run_coroutine_threadsafe(
-            self.generate_text_async(prompt, document, start_offset),
+            self.generate_text_async(prompt, input, document, start_offset),
             self.loop)
 
 # Create a global instance of EditGPTServer
@@ -122,6 +128,8 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
                     start_iter = document.get_start_iter()
                     end_iter = document.get_end_iter()
 
+                document_text = document.get_text(start_iter, end_iter, True)
+
                 start_offset = start_iter.get_offset()
 
                 document.begin_user_action()
@@ -134,7 +142,7 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
                 prompt_text = text_buffer.get_text(start_iter, end_iter, True)
 
                 # Use the global EditGPTServer instance
-                edit_gpt_server.dispatch_async_task(prompt_text, document, start_offset)
+                edit_gpt_server.dispatch_async_task(prompt_text, document_text, document, start_offset)
 
 class EditGPTPlugin(GObject.Object, Gedit.AppActivatable):
     __gtype_name__ = "EditGPTPlugin"
