@@ -1,89 +1,12 @@
-import asyncio
-from gi.repository import GObject, Gedit, Gio, Gtk, Gdk, GLib
+from gi.repository import GObject, Gedit, Gio, Gtk, Gdk
+from components.server import EditGPTServer
 import os
-import threading
-import weakref
-
-class EditGPTServer:
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(EditGPTServer, cls).__new__(cls)
-            try:
-                cls._instance.loop = asyncio.get_event_loop()
-            except RuntimeError:
-                cls._instance.loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(cls._instance.loop)
-
-            if not cls._instance.loop.is_running():
-                threading.Thread(target=cls._instance.start_event_loop, args=(cls._instance.loop,), daemon=True).start()
-
-        return cls._instance
-
-    def start_event_loop(self, loop):
-        asyncio.set_event_loop(loop)
-        loop.run_forever()
-
-    async def generate_text_async(self, prompt, input, document, start_offset):
-        try:
-            document_ref = weakref.ref(document)
-            cmd = ['sgpt']
-            if 'generate_only_code' in prompt:
-                if prompt['generate_only_code']:
-                    cmd.append('--code')
-            cmd.append(prompt["text"])
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-
-            # Send the input string to the process
-            process.stdin.write(input.encode())
-            await process.stdin.drain()
-            process.stdin.close()
-
-            async def read_stream(stream, callback):
-                while True:
-                    line = await stream.read(1)  # Read one byte at a time
-                    if line:
-                        callback(line.decode())
-                    else:
-                        break
-
-            def handle_stdout(token):
-                nonlocal start_offset
-                if document_ref() is not None:
-                        GLib.idle_add(self.insert_text, document, start_offset, token)
-                        start_offset += len(token)
-
-            def handle_stderr(token):
-                print(token)
-
-            # Read stdout and stderr concurrently
-            await asyncio.gather(
-                read_stream(process.stdout, handle_stdout),
-                read_stream(process.stderr, handle_stderr))
-        except Exception as e:
-            print(f"Failed to execute prompt: {e}")
-
-    def insert_text(self, document, start_offset, token):
-        document.begin_user_action()
-        start_iter = document.get_iter_at_offset(start_offset)
-        document.insert(start_iter, token)
-        document.end_user_action()
-        return False  # Stop the idle function
-
-    def dispatch_async_task(self, prompt, input, document, start_offset):
-        # Schedule the coroutine to run in the background
-        asyncio.run_coroutine_threadsafe(
-            self.generate_text_async(prompt, input, document, start_offset),
-            self.loop)
 
 # Create a global instance of EditGPTServer
-edit_gpt_server = EditGPTServer()
+try:
+    editgpt_server = EditGPTServer()
+except Exception as e:
+    print(f"Failed tostart EditGPT server: {e}")
 
 class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
     window = GObject.Property(type=Gedit.Window)
@@ -159,7 +82,7 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
                     prompt['generate_only_code'] = True
 
                 # Use the global EditGPTServer instance
-                edit_gpt_server.dispatch_async_task(prompt, document_text, document, start_offset)
+                editgpt_server.jobs.dispatch_async_task(prompt, document_text, document, start_offset)
 
     def on_key_press_event(self, widget, event, dialog):
         if event.state & Gdk.ModifierType.CONTROL_MASK and event.keyval == Gdk.KEY_Return:

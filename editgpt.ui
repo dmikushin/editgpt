@@ -45,6 +45,12 @@
             <property name="active">True</property>
           </object>
         </child>
+        <child>
+          <object class="GtkCheckButton" id="prompting_history_checkbox">
+            <property name="label" translatable="yes">Prompting history</property>
+            <property name="active">True</property>
+          </object>
+        </child>
         <child internal-child="action_area">
           <object class="GtkButtonBox" id="dialog-action_area1">
             <property name="layout_style">end</property>
