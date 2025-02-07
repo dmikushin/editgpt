@@ -39,6 +39,12 @@
             </child>
           </object>
         </child>
+        <child>
+          <object class="GtkCheckButton" id="generate_code_checkbox">
+            <property name="label" translatable="yes">Generate only code</property>
+            <property name="active">True</property>
+          </object>
+        </child>
         <child internal-child="action_area">
           <object class="GtkButtonBox" id="dialog-action_area1">
             <property name="layout_style">end</property>

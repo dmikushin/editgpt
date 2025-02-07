@@ -28,8 +28,13 @@ class EditGPTServer:
     async def generate_text_async(self, prompt, input, document, start_offset):
         try:
             document_ref = weakref.ref(document)
+            cmd = ['sgpt']
+            if 'generate_only_code' in prompt:
+                if prompt['generate_only_code']:
+                    cmd.append('--code')
+            cmd.append(prompt["text"])
             process = await asyncio.create_subprocess_exec(
-                'sgpt', prompt,
+                *cmd,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
@@ -114,6 +119,10 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
         text_view = builder.get_object("text_view")
         text_buffer = text_view.get_buffer()
 
+        # Get the checkbox state
+        generate_code_checkbox = builder.get_object("generate_code_checkbox")
+        generate_code = generate_code_checkbox.get_active()
+
         # Connect key-press-event to handle Ctrl+Enter
         dialog.connect("key-press-event", self.on_key_press_event, dialog)
 
@@ -144,8 +153,13 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
                 end_iter = text_buffer.get_end_iter()
                 prompt_text = text_buffer.get_text(start_iter, end_iter, True)
 
+                # Add more settings 
+                prompt = { "text" : prompt_text }
+                if generate_code:
+                    prompt['generate_only_code'] = True
+
                 # Use the global EditGPTServer instance
-                edit_gpt_server.dispatch_async_task(prompt_text, document_text, document, start_offset)
+                edit_gpt_server.dispatch_async_task(prompt, document_text, document, start_offset)
 
     def on_key_press_event(self, widget, event, dialog):
         if event.state & Gdk.ModifierType.CONTROL_MASK and event.keyval == Gdk.KEY_Return:
