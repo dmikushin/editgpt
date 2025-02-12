@@ -23,11 +23,15 @@ class EditGPTJobServer:
     async def generate_text_async(self, prompt, input, document, start_offset):
         try:
             document_ref = weakref.ref(document)
-            cmd = ['sgpt']
-            if 'generate_only_code' in prompt:
-                if prompt['generate_only_code']:
-                    cmd.append('--code')
+            
+            # Begin user action to group all insertions into one undo step
+            document.begin_user_action()
+            
+            cmd = ['sgpt', '--no-md']
+            if 'generate_only_code' in prompt and prompt['generate_only_code']:
+                cmd.append('--code')
             cmd.append(prompt["text"])
+            
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdin=asyncio.subprocess.PIPE,
@@ -51,8 +55,8 @@ class EditGPTJobServer:
             def handle_stdout(token):
                 nonlocal start_offset
                 if document_ref() is not None:
-                        GLib.idle_add(self.insert_text, document, start_offset, token)
-                        start_offset += len(token)
+                    GLib.idle_add(self.insert_text, document, start_offset, token)
+                    start_offset += len(token)
 
             def handle_stderr(token):
                 print(token)
@@ -61,8 +65,14 @@ class EditGPTJobServer:
             await asyncio.gather(
                 read_stream(process.stdout, handle_stdout),
                 read_stream(process.stderr, handle_stderr))
+            
         except Exception as e:
             print(f"Failed to execute prompt: {e}")
+        
+        finally:
+            # End user action after all insertions are done
+            if document_ref() is not None:
+                document.end_user_action()
 
     def insert_text(self, document, start_offset, token):
         document.begin_user_action()
