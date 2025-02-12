@@ -76,7 +76,7 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
                 end_iter = text_buffer.get_end_iter()
                 prompt_text = text_buffer.get_text(start_iter, end_iter, True)
 
-                # Add more settings 
+                # Add more settings
                 prompt = { "text" : prompt_text }
                 if generate_code:
                     prompt['generate_only_code'] = True
@@ -99,7 +99,7 @@ class EditGPTPlugin(GObject.Object, Gedit.AppActivatable):
 
     def do_activate(self):
         self.app.set_accels_for_action("win.editgpt", [
-            "<Control>G"
+            "<Control>R"
         ])
 
     def do_deactivate(self):

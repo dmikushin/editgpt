@@ -22,4 +22,4 @@ git clone https://github.com/dmikushin/editgpt.git editgpt
 ## Usage
 
 1. Enable EditGPT plugin in GEdit plugins
-2. Select some text and press Ctrl+G to perform GPT edit
+2. Select some text and press Ctrl+R to perform GPT edit
