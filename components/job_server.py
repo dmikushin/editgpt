@@ -4,8 +4,10 @@ import threading
 import weakref
 
 class EditGPTJobData:
-    def __init__(self, document):
+    def __init__(self, document, start_iter, end_iter):
         self.document = document
+        self.start_iter = start_iter
+        self.end_iter = end_iter
         self.lock = threading.Lock()
         self.queue = []
         self.state = 'begin'
@@ -27,9 +29,10 @@ class EditGPTJobServer:
         asyncio.set_event_loop(loop)
         loop.run_forever()
 
-    async def generate_text_async(self, prompt, input, document, start_offset):
+    async def generate_text_async(self, prompt, document, start_iter, end_iter):
         try:
-            data = EditGPTJobData(document)
+            start_offset = start_iter.get_offset()
+            data = EditGPTJobData(document, start_iter, end_iter)
             self.idle_handler = GLib.idle_add(self.process_text_queue, data)
 
             cmd = ['sgpt', '--no-md']
@@ -43,6 +46,8 @@ class EditGPTJobServer:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
+
+            input = document.get_text(start_iter, end_iter, True)
 
             process.stdin.write(input.encode())
             await process.stdin.drain()
@@ -78,6 +83,7 @@ class EditGPTJobServer:
         with data.lock:
             if data.state == 'begin':
                 data.document.begin_user_action()
+                data.document.delete(data.start_iter, data.end_iter)
                 data.state = 'inprogress'
                 # Continue calling this function.
                 return True
@@ -94,7 +100,7 @@ class EditGPTJobServer:
                 # and will not be called again.
                 return False
 
-    def dispatch_async_task(self, prompt, input, document, start_offset):
+    def dispatch_async_task(self, prompt, document, start_iter, end_iter):
         asyncio.run_coroutine_threadsafe(
-            self.generate_text_async(prompt, input, document, start_offset),
+            self.generate_text_async(prompt, document, start_iter, end_iter),
             self.loop)

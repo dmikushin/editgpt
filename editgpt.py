@@ -57,24 +57,17 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
         if response == Gtk.ResponseType.OK:
             document = self.window.get_active_document()
             if document:
-                if document.get_has_selection():
-                    start_iter, end_iter = document.get_selection_bounds()
-                else:
-                    start_iter = document.get_start_iter()
-                    end_iter = document.get_end_iter()
-
-                document_text = document.get_text(start_iter, end_iter, True)
-
-                start_offset = start_iter.get_offset()
-
-                document.begin_user_action()
-                document.delete(start_iter, end_iter)
-                document.end_user_action()
 
                 # Extract text from the Gtk.TextBuffer
                 start_iter = text_buffer.get_start_iter()
                 end_iter = text_buffer.get_end_iter()
                 prompt_text = text_buffer.get_text(start_iter, end_iter, True)
+
+                if document.get_has_selection():
+                    start_iter, end_iter = document.get_selection_bounds()
+                else:
+                    start_iter = document.get_start_iter()
+                    end_iter = document.get_end_iter()
 
                 # Add more settings
                 prompt = { "text" : prompt_text }
@@ -82,7 +75,7 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
                     prompt['generate_only_code'] = True
 
                 # Use the global EditGPTServer instance
-                editgpt_server.jobs.dispatch_async_task(prompt, document_text, document, start_offset)
+                editgpt_server.jobs.dispatch_async_task(prompt, document, start_iter, end_iter)
 
     def on_key_press_event(self, widget, event, dialog):
         if event.state & Gdk.ModifierType.CONTROL_MASK and event.keyval == Gdk.KEY_Return:
