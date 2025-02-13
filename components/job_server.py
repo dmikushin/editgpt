@@ -3,6 +3,13 @@ import asyncio
 import threading
 import weakref
 
+class EditGPTJobData:
+    def __init__(self, document):
+        self.document = document
+        self.lock = threading.Lock()
+        self.queue = []
+        self.state = 'begin'
+
 class EditGPTJobServer:
     _instance = None
 
@@ -22,11 +29,9 @@ class EditGPTJobServer:
 
     async def generate_text_async(self, prompt, input, document, start_offset):
         try:
-            document_ref = weakref.ref(document)
-            
-            # Begin user action to group all insertions into one undo step
-            document.begin_user_action()
-            
+            data = EditGPTJobData(document)
+            self.idle_handler = GLib.idle_add(self.process_text_queue, data)
+
             cmd = ['sgpt', '--no-md']
             if 'generate_only_code' in prompt and prompt['generate_only_code']:
                 cmd.append('--code')
@@ -39,14 +44,13 @@ class EditGPTJobServer:
                 stderr=asyncio.subprocess.PIPE
             )
 
-            # Send the input string to the process
             process.stdin.write(input.encode())
             await process.stdin.drain()
             process.stdin.close()
 
             async def read_stream(stream, callback):
                 while True:
-                    line = await stream.read(1)  # Read one byte at a time
+                    line = await stream.read(1)
                     if line:
                         callback(line.decode())
                     else:
@@ -54,35 +58,43 @@ class EditGPTJobServer:
 
             def handle_stdout(token):
                 nonlocal start_offset
-                if document_ref() is not None:
-                    GLib.idle_add(self.insert_text, document, start_offset, token)
-                    start_offset += len(token)
-
+                with data.lock:
+                    data.queue.append((start_offset, token))
+                start_offset += len(token)
             def handle_stderr(token):
                 print(token)
 
-            # Read stdout and stderr concurrently
             await asyncio.gather(
                 read_stream(process.stdout, handle_stdout),
                 read_stream(process.stderr, handle_stderr))
+
+            with data.lock:
+                data.state = 'end'
             
         except Exception as e:
             print(f"Failed to execute prompt: {e}")
         
-        finally:
-            # End user action after all insertions are done
-            if document_ref() is not None:
-                document.end_user_action()
-
-    def insert_text(self, document, start_offset, token):
-        document.begin_user_action()
-        start_iter = document.get_iter_at_offset(start_offset)
-        document.insert(start_iter, token)
-        document.end_user_action()
-        return False  # Stop the idle function
+    def process_text_queue(self, data):
+        with data.lock:
+            if data.state == 'begin':
+                data.document.begin_user_action()
+                data.state = 'inprogress'
+                # Continue calling this function.
+                return True
+            elif data.state == 'inprogress':
+                while data.queue:
+                    start_offset, token = data.queue.pop(0)
+                    start_iter = data.document.get_iter_at_offset(start_offset)
+                    data.document.insert(start_iter, token)
+                # Continue calling this function.
+                return True
+            elif data.state == 'end':
+                data.document.end_user_action()
+                # Remove the function from the list of event sources
+                # and will not be called again.
+                return False
 
     def dispatch_async_task(self, prompt, input, document, start_offset):
-        # Schedule the coroutine to run in the background
         asyncio.run_coroutine_threadsafe(
             self.generate_text_async(prompt, input, document, start_offset),
             self.loop)
