@@ -46,9 +46,11 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
         last_prompt = editgpt_server.history.load_last_prompt()
         text_buffer.set_text(last_prompt)
 
-        # Get the checkbox state
         generate_code_checkbox = builder.get_object("generate_code_checkbox")
         generate_code = generate_code_checkbox.get_active()
+
+        preserve_indentation_checkbox = builder.get_object("preserve_indentation_checkbox")
+        preserve_indentation = preserve_indentation_checkbox.get_active()
 
         # Connect key-press-event to handle Ctrl+Enter
         dialog.connect("key-press-event", self.on_key_press_event, dialog)
@@ -75,10 +77,15 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
                     start_iter = document.get_start_iter()
                     end_iter = document.get_end_iter()
 
-                # Add more settings
-                prompt = {"text": prompt_text}
+                prompt = {
+                    'text': prompt_text,
+                    'generate_only_code' : False,
+                    'preserve_indentation' : False
+                }
                 if generate_code:
                     prompt['generate_only_code'] = True
+                if preserve_indentation:
+                    prompt['preserve_indentation'] = True
 
                 # Use the global EditGPTServer instance
                 editgpt_server.jobs.dispatch_async_task(prompt, document, start_iter, end_iter)

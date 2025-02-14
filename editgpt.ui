@@ -46,6 +46,12 @@
           </object>
         </child>
         <child>
+          <object class="GtkCheckButton" id="preserve_indentation_checkbox">
+            <property name="label" translatable="yes">Preserve Indentation</property>
+            <property name="active">True</property>
+          </object>
+        </child>
+        <child>
           <object class="GtkCheckButton" id="prompting_history_checkbox">
             <property name="label" translatable="yes">Prompting history</property>
             <property name="active">True</property>

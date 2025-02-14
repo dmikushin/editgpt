@@ -1,7 +1,7 @@
 from gi.repository import GLib
 import asyncio
 import threading
-import weakref
+import re
 
 class EditGPTJobData:
     def __init__(self, document, start_iter, end_iter):
@@ -55,6 +55,15 @@ class EditGPTJobServer:
 
             input = document.get_text(start_iter, end_iter, True)
 
+            # Determine the indent of the first line of input.
+            first_line = input.splitlines()[0]
+            match = re.match(r'^\s*', first_line)
+            indent = match.group(0) if match else ''
+            cached_indent = True
+            preserve_indentation = False
+            if 'preserve_indentation' in prompt and prompt['preserve_indentation']:
+                preserve_indentation = True
+
             process.stdin.write(input.encode())
             await process.stdin.drain()
             process.stdin.close()
@@ -68,10 +77,21 @@ class EditGPTJobServer:
                         break
 
             def handle_stdout(token):
+                nonlocal preserve_indentation
+                nonlocal indent
+                nonlocal cached_indent
                 nonlocal start_offset
                 with data.lock:
+                    if preserve_indentation:
+                        if cached_indent:
+                            token = f'{indent}{token}'
+                            cached_indent = False
+                        token.replace('\n', f'\n{indent}')
+                        if token[-1] == '\n':
+                            cached_indent = True
                     data.queue.append((start_offset, token))
                 start_offset += len(token)
+
             def handle_stderr(token):
                 print(token)
 
