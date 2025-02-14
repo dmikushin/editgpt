@@ -1,24 +1,15 @@
 import os
-import sqlite3
 
 class EditGPTHistory:
     def __init__(self):
-        self._initialize_database()
-
-    def _initialize_database(self):
-        self.conn = sqlite3.connect(os.path.expanduser("~/.config/gedit/editgpt_history.db"))
-        self.cursor = self.conn.cursor()
-        self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS history (
-                id INTEGER PRIMARY KEY,
-                prompt TEXT
-            )
-        ''')
-        self.conn.commit()
+        self.history_file = os.path.expanduser("~/.config/gedit/editgpt_last_prompt.txt")
 
     def save_prompt(self, prompt):
-        self.cursor.execute('INSERT INTO history (prompt) VALUES (?)', (prompt,))
-        self.conn.commit()
+        with open(self.history_file, 'w') as file:
+            file.write(prompt)
 
-    def close(self):
-        self.conn.close()
+    def load_last_prompt(self):
+        if os.path.exists(self.history_file):
+            with open(self.history_file, 'r') as file:
+                return file.read()
+        return ""

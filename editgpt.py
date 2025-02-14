@@ -42,6 +42,10 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
         text_view = builder.get_object("text_view")
         text_buffer = text_view.get_buffer()
 
+        # Load the last prompt
+        last_prompt = editgpt_server.history.load_last_prompt()
+        text_buffer.set_text(last_prompt)
+
         # Get the checkbox state
         generate_code_checkbox = builder.get_object("generate_code_checkbox")
         generate_code = generate_code_checkbox.get_active()
@@ -57,11 +61,13 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
         if response == Gtk.ResponseType.OK:
             document = self.window.get_active_document()
             if document:
-
                 # Extract text from the Gtk.TextBuffer
                 start_iter = text_buffer.get_start_iter()
                 end_iter = text_buffer.get_end_iter()
                 prompt_text = text_buffer.get_text(start_iter, end_iter, True)
+
+                # Save the last prompt
+                editgpt_server.history.save_prompt(prompt_text)
 
                 if document.get_has_selection():
                     start_iter, end_iter = document.get_selection_bounds()
@@ -70,7 +76,7 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
                     end_iter = document.get_end_iter()
 
                 # Add more settings
-                prompt = { "text" : prompt_text }
+                prompt = {"text": prompt_text}
                 if generate_code:
                     prompt['generate_only_code'] = True
 
