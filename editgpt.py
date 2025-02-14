@@ -55,40 +55,37 @@ class EditGPTWindow(GObject.Object, Gedit.WindowActivatable):
         # Connect key-press-event to handle Ctrl+Enter
         dialog.connect("key-press-event", self.on_key_press_event, dialog)
 
+        # Determine the document selection already now.
+        document = self.window.get_active_document()
+        if document:
+            if document.get_has_selection():
+                selection_start_iter, selection_end_iter = document.get_selection_bounds()
+            else:
+                selection_start_iter = document.get_start_iter()
+                selection_end_iter = document.get_end_iter()
+
         dialog.show_all()
         response = dialog.run()
 
         dialog.destroy()
 
-        if response == Gtk.ResponseType.OK:
-            document = self.window.get_active_document()
-            if document:
-                # Extract text from the Gtk.TextBuffer
-                start_iter = text_buffer.get_start_iter()
-                end_iter = text_buffer.get_end_iter()
-                prompt_text = text_buffer.get_text(start_iter, end_iter, True)
+        if response == Gtk.ResponseType.OK and document:
+            # Extract text from the Gtk.TextBuffer
+            start_iter = text_buffer.get_start_iter()
+            end_iter = text_buffer.get_end_iter()
+            prompt_text = text_buffer.get_text(start_iter, end_iter, True)
 
-                # Save the last prompt
-                editgpt_server.history.save_prompt(prompt_text)
+            # Save the last prompt
+            editgpt_server.history.save_prompt(prompt_text)
 
-                if document.get_has_selection():
-                    start_iter, end_iter = document.get_selection_bounds()
-                else:
-                    start_iter = document.get_start_iter()
-                    end_iter = document.get_end_iter()
+            prompt = {
+                'text': prompt_text,
+                'generate_only_code': generate_code,
+                'preserve_indentation': preserve_indentation
+            }
 
-                prompt = {
-                    'text': prompt_text,
-                    'generate_only_code' : False,
-                    'preserve_indentation' : False
-                }
-                if generate_code:
-                    prompt['generate_only_code'] = True
-                if preserve_indentation:
-                    prompt['preserve_indentation'] = True
-
-                # Use the global EditGPTServer instance
-                editgpt_server.jobs.dispatch_async_task(prompt, document, start_iter, end_iter)
+            # Use the global EditGPTServer instance
+            editgpt_server.jobs.dispatch_async_task(prompt, document, selection_start_iter, selection_end_iter)
 
     def on_key_press_event(self, widget, event, dialog):
         if event.state & Gdk.ModifierType.CONTROL_MASK and event.keyval == Gdk.KEY_Return:
