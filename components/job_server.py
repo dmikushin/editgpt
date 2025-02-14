@@ -20,14 +20,20 @@ class EditGPTJobServer:
             self.loop = asyncio.get_event_loop()
         except RuntimeError:
             self.loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(self.loop)
 
         if not self.loop.is_running():
-            threading.Thread(target=self.start_event_loop, args=(self.loop,), daemon=True).start()
+            self.thread = threading.Thread(target=self.start_event_loop, args=(self.loop,), daemon=True)
+            self.thread.start()
 
     def start_event_loop(self, loop):
         asyncio.set_event_loop(loop)
         loop.run_forever()
+
+    def __del__(self):
+        if self.loop.is_running():
+            self.loop.call_soon_threadsafe(self.loop.stop)
+        if self.thread.is_alive():
+            self.thread.join()
 
     async def generate_text_async(self, prompt, document, start_iter, end_iter):
         try:
